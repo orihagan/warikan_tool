@@ -5,100 +5,72 @@
   <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
   <title>割り勘精算ツール</title>
   <style>
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-    margin: 0;
-    padding: 16px;
-    background: linear-gradient(180deg, #f5f7fa, #e4ecf5);
-    color: #333;
-  }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: #f5f7fa;
+  margin: 0;
+  padding: 12px;
+}
 
-  h2 {
-    text-align: center;
-    margin-bottom: 20px;
-    font-size: 1.4rem;
-  }
+.container {
+  max-width: 100%;
+}
 
-  .card {
-    background: #fff;
-    border-radius: 16px;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
-    padding: 12px;
-  }
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+  border-radius: 14px;
+  overflow: hidden;
+}
 
-  table {
-    width: 100%;
-    border-collapse: separate;
-    border-spacing: 0 8px;
-  }
+th, td {
+  padding: 10px 6px;
+  text-align: center;
+  font-size: 14px;
+}
 
-  th {
-    font-size: 0.75rem;
-    color: #666;
-    font-weight: normal;
-  }
+th {
+  background: #f0f0f0;
+  font-weight: 600;
+}
 
-  td {
-    background: #f9fbfd;
-    border-radius: 12px;
-    padding: 6px;
-  }
+input[type="text"],
+input[type="number"] {
+  width: 100%;
+  padding: 8px 6px;
+  font-size: 16px; /* iOSで潰れない */
+  border-radius: 8px;
+  border: 1px solid #ccc;
+}
 
+input[readonly] {
+  background: #eee;
+}
+
+button {
+  padding: 10px 14px;
+  border: none;
+  border-radius: 10px;
+  background: #000;
+  color: #fff;
+  font-size: 15px;
+}
+
+.result {
+  white-space: pre-wrap;
+  background: #fff;
+  padding: 14px;
+  border-radius: 14px;
+  margin-top: 14px;
+  font-size: 15px;
+}
+
+@media (max-width: 480px) {
   th, td {
-    text-align: center;
+    font-size: 12px;
   }
-
-  input[type="text"],
-  input[type="number"] {
-    width: 100%;
-    border: none;
-    background: transparent;
-    text-align: center;
-    font-size: 0.9rem;
-    padding: 6px 0;
-  }
-
-  input[type="number"] {
-    appearance: textfield;
-  }
-
-  input[readonly] {
-    color: #2c7be5;
-    font-weight: bold;
-  }
-
-  button {
-    width: 100%;
-    margin-top: 16px;
-    padding: 14px 0;
-    border: none;
-    border-radius: 999px;
-    background: linear-gradient(135deg, #4facfe, #00f2fe);
-    color: #fff;
-    font-size: 1rem;
-    font-weight: bold;
-    cursor: pointer;
-  }
-
-  button:active {
-    transform: scale(0.98);
-  }
-
-  .result {
-    margin-top: 20px;
-    padding: 14px;
-    background: #ffffff;
-    border-radius: 14px;
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
-    font-size: 0.9rem;
-    line-height: 1.6;
-  }
-
-  @media (max-width: 600px) {
-    th {
-      font-size: 0.65rem;
-    }
-  }
+}
 </style>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#4facfe">
@@ -173,8 +145,7 @@ function removeRow(btn) {
 }
 
 function toggleRow(input) {
-  const row = input.closest('tr');
-  row.style.display = input.value.trim() === '' ? 'none' : '';
+  // 名前が空でも行は残す（削除しない）
 }
 
 function updateSum(input) {
@@ -233,14 +204,28 @@ function calculate() {
   document.getElementById('result').innerText = text || '精算不要です';
 }
 
-// 初期メンバー
-document.getElementById('members').append(
-  createRow('長野'),
-  createRow('中村'),
-  createRow('宇佐美'),
-  createRow('崎山')
-);
-</script>
+// ===== 初期表示 =====
+// 名前なしの1行だけ表示
+addRow();
 
-</body>
-</html>
+// ===== スワイプで行削除（スマホ向け） =====
+let touchStartX = 0;
+let touchEndX = 0;
+
+document.addEventListener('touchstart', e => {
+  touchStartX = e.changedTouches[0].screenX;
+});
+
+document.addEventListener('touchend', e => {
+  touchEndX = e.changedTouches[0].screenX;
+  handleSwipe(e.target);
+});
+
+function handleSwipe(target) {
+  if (touchStartX - touchEndX > 80) {
+    const row = target.closest('tr');
+    if (row && row.parentElement.id === 'members') {
+      row.remove();
+    }
+  }
+}
