@@ -207,7 +207,9 @@ function calculate() {
 
 // ===== 初期表示 =====
 // 名前なしの1行だけ表示
-addRow();
+document.addEventListener('DOMContentLoaded', () => {
+  addRow();
+});
 
 // ===== スワイプで行削除（スマホ向け） =====
 let touchStartX = 0;
@@ -217,16 +219,21 @@ let touchEndX = 0;
 let touchStartX = 0;
 
 function onTouchStart(e) {
+  // inputやbutton操作はスワイプ判定しない
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
   touchStartX = e.changedTouches[0].screenX;
 }
 
 function onTouchEnd(e) {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
   const touchEndX = e.changedTouches[0].screenX;
   if (touchStartX - touchEndX > 80) {
     const row = e.target.closest('tr');
     if (row && row.parentElement && row.parentElement.id === 'members') {
       row.remove();
     }
+  }
+}
   }
 }
 
