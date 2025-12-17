@@ -110,149 +110,109 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('service-worker.js');
 }
 
+const membersTable = document.getElementById('members');
+const resultEl = document.getElementById('result');
+
 function copyResult() {
-  const text = document.getElementById('result').innerText;
+  const text = resultEl.innerText;
   if (!text) {
     alert('コピーする結果がありません');
     return;
   }
-  navigator.clipboard.writeText(text).then(() => {
-    alert('結果をコピーしました');
-  });
+  navigator.clipboard.writeText(text).then(() => alert('結果をコピーしました'));
 }
 
-function createRow(name = '') {
+function createRow() {
   const tr = document.createElement('tr');
   tr.innerHTML = `
-    <td><input type="text" value="${name}"></td>
-    <td><input type="number" value="0" oninput="updateSum(this)"></td>
-    <td><input type="number" value="0" oninput="updateSum(this)"></td>
-    <td><input type="number" value="0" oninput="updateSum(this)"></td>
-    <td><input type="number" value="0" oninput="updateSum(this)"></td>
-    <td><input type="number" value="0" oninput="updateSum(this)"></td>
+    <td><input type="text" placeholder="名前"></td>
+    <td><input type="number" value="0"></td>
+    <td><input type="number" value="0"></td>
+    <td><input type="number" value="0"></td>
+    <td><input type="number" value="0"></td>
+    <td><input type="number" value="0"></td>
     <td><input type="number" value="0" readonly></td>
-    <td><button type="button" onclick="removeRow(this)">×</button></td>
+    <td><button type="button">×</button></td>
   `;
-  attachSwipe(tr);
+
+  // 合算
+  const nums = tr.querySelectorAll('input[type="number"]');
+  nums.forEach((n, i) => {
+    if (i < 5) n.addEventListener('input', () => updateRowSum(tr));
+  });
+
+  // 削除ボタン
+  tr.querySelector('button').addEventListener('click', () => tr.remove());
+
+  // スワイプ削除
+  let startX = 0;
+  tr.addEventListener('touchstart', e => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
+    startX = e.changedTouches[0].screenX;
+  }, { passive: true });
+
+  tr.addEventListener('touchend', e => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
+    const endX = e.changedTouches[0].screenX;
+    if (startX - endX > 80) tr.remove();
+  }, { passive: true });
+
   return tr;
 }
 
 function addRow() {
-  document.getElementById('members').appendChild(createRow());
+  membersTable.appendChild(createRow());
 }
 
-function removeRow(btn) {
-  btn.closest('tr').remove();
-}
-
-function toggleRow(input) {
-  // 名前が空でも行は残す（削除しない）
-}
-
-function updateSum(input) {
-  const row = input.closest('tr');
-  const nums = row.querySelectorAll('input[type="number"]');
+function updateRowSum(tr) {
+  const nums = tr.querySelectorAll('input[type="number"]');
   let sum = 0;
-  for (let i = 0; i < nums.length - 1; i++) {
-    sum += Number(nums[i].value) || 0;
-  }
-  nums[nums.length - 1].value = sum;
+  for (let i = 0; i < 5; i++) sum += Number(nums[i].value) || 0;
+  nums[5].value = sum;
 }
 
 function calculate() {
-  const rows = document.querySelectorAll('#members tr');
+  const rows = membersTable.querySelectorAll('tr');
   const members = [];
 
-  for (let i = 1; i < rows.length; i++) {
-    if (rows[i].style.display === 'none') continue;
-    const inputs = rows[i].querySelectorAll('input');
-    const name = inputs[0].value.trim();
-    if (!name) continue;
-    const paid = Number(inputs[inputs.length - 2].value) || 0;
-    members.push({ name, paid });
+  rows.forEach((tr, idx) => {
+    if (idx === 0) return; // ヘッダ
+    const name = tr.querySelector('input[type="text"]').value.trim();
+    const sum = Number(tr.querySelectorAll('input[type="number"]')[5].value) || 0;
+    if (name) members.push({ name, sum });
+  });
+
+  if (!members.length) {
+    resultEl.innerText = '名前が入力されていません';
+    return;
   }
 
-  const total = members.reduce((s, m) => s + m.paid, 0);
-  const share = members.length ? total / members.length : 0;
+  const total = members.reduce((a, b) => a + b.sum, 0);
+  const avg = Math.round(total / members.length);
 
-  const receivers = [];
   const payers = [];
+  const receivers = [];
 
   members.forEach(m => {
-    const diff = m.paid - share;
-    if (diff > 0) receivers.push({ name: m.name, amount: diff });
-    if (diff < 0) payers.push({ name: m.name, amount: -diff });
+    const diff = m.sum - avg;
+    if (diff > 0) receivers.push({ ...m, diff });
+    if (diff < 0) payers.push({ ...m, diff: -diff });
   });
 
-  let text = `【割り勘精算】
-合計：${total}円
-1人あたり：${Math.round(share)}円
+  let text = `【割り勘精算】\n合計：${total}円\n1人あたり：${avg}円\n\n`;
 
-`;
-
-  payers.forEach(p => {
-    receivers.forEach(r => {
-      if (p.amount > 0 && r.amount > 0) {
-        const pay = Math.min(p.amount, r.amount);
-        p.amount -= pay;
-        r.amount -= pay;
-        text += `${p.name} → ${r.name} に ${Math.round(pay)}円
-`;
-      }
-    });
-  });
-
-  document.getElementById('result').innerText = text || '精算不要です';
-}
-
-// ===== 初期表示 =====
-// 名前なしの1行だけ表示
-document.addEventListener('DOMContentLoaded', () => {
-  addRow();
-});
-
-// ===== スワイプで行削除（スマホ向け） =====
-let touchStartX = 0;
-let touchEndX = 0;
-
-// ===== スワイプで行削除（スマホ向け） =====
-let touchStartX = 0;
-
-function onTouchStart(e) {
-  // inputやbutton操作はスワイプ判定しない
-  if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
-  touchStartX = e.changedTouches[0].screenX;
-}
-
-function onTouchEnd(e) {
-  if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
-  const touchEndX = e.changedTouches[0].screenX;
-  if (touchStartX - touchEndX > 80) {
-    const row = e.target.closest('tr');
-    if (row && row.parentElement && row.parentElement.id === 'members') {
-      row.remove();
+  payers.forEach(p => receivers.forEach(r => {
+    if (p.diff > 0 && r.diff > 0) {
+      const amt = Math.min(p.diff, r.diff);
+      text += `${p.name} → ${r.name} に ${amt}円\n`;
+      p.diff -= amt;
+      r.diff -= amt;
     }
-  }
-}
-  }
+  }));
+
+  resultEl.innerText = text || '精算不要です';
 }
 
-// 各行にだけイベントを付与する（ボタン誤動作防止）
-function attachSwipe(row) {
-  row.addEventListener('touchstart', onTouchStart, { passive: true });
-  row.addEventListener('touchend', onTouchEnd, { passive: true });
-}
-
-document.addEventListener('touchend', e => {
-  touchEndX = e.changedTouches[0].screenX;
-  handleSwipe(e.target);
-});
-
-function handleSwipe(target) {
-  if (touchStartX - touchEndX > 80) {
-    const row = target.closest('tr');
-    if (row && row.parentElement.id === 'members') {
-      row.remove();
-    }
-  }
-}
+// 初期行
+document.addEventListener('DOMContentLoaded', () => addRow());
+</script>
