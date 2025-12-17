@@ -199,12 +199,17 @@ function calculate() {
     if (diff < 0) payers.push({ ...m, diff: -diff });
   });
 
-  let text = `【割り勘精算】\n合計：${total}円\n1人あたり：${avg}円\n\n`;
+  let text = `【割り勘精算】
+合計：${total}円
+1人あたり：${avg}円
+
+`;
 
   payers.forEach(p => receivers.forEach(r => {
     if (p.diff > 0 && r.diff > 0) {
       const amt = Math.min(p.diff, r.diff);
-      text += `${p.name} → ${r.name} に ${amt}円\n`;
+      text += `${p.name} → ${r.name} に ${amt}円
+`;
       p.diff -= amt;
       r.diff -= amt;
     }
