@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <title>割り勘精算ツール</title>
+  <style>
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    margin: 0;
+    padding: 16px;
+    background: linear-gradient(180deg, #f5f7fa, #e4ecf5);
+    color: #333;
+  }
+
+  h2 {
+    text-align: center;
+    margin-bottom: 20px;
+    font-size: 1.4rem;
+  }
+
+  .card {
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+    padding: 12px;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0 8px;
+  }
+
+  th {
+    font-size: 0.75rem;
+    color: #666;
+    font-weight: normal;
+  }
+
+  td {
+    background: #f9fbfd;
+    border-radius: 12px;
+    padding: 6px;
+  }
+
+  th, td {
+    text-align: center;
+  }
+
+  input[type="text"],
+  input[type="number"] {
+    width: 100%;
+    border: none;
+    background: transparent;
+    text-align: center;
+    font-size: 0.9rem;
+    padding: 6px 0;
+  }
+
+  input[type="number"] {
+    appearance: textfield;
+  }
+
+  input[readonly] {
+    color: #2c7be5;
+    font-weight: bold;
+  }
+
+  button {
+    width: 100%;
+    margin-top: 16px;
+    padding: 14px 0;
+    border: none;
+    border-radius: 999px;
+    background: linear-gradient(135deg, #4facfe, #00f2fe);
+    color: #fff;
+    font-size: 1rem;
+    font-weight: bold;
+    cursor: pointer;
+  }
+
+  button:active {
+    transform: scale(0.98);
+  }
+
+  .result {
+    margin-top: 20px;
+    padding: 14px;
+    background: #ffffff;
+    border-radius: 14px;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+    font-size: 0.9rem;
+    line-height: 1.6;
+  }
+
+  @media (max-width: 600px) {
+    th {
+      font-size: 0.65rem;
+    }
+  }
+</style>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#4facfe">
+</head>
+<body>
+
+<h2>割り勘精算ツール</h2>
+
+<div class="card">
+
+<table id="members">
+  <tr>
+    <th>名前</th>
+    <th>支払①</th>
+    <th>支払②</th>
+    <th>支払③</th>
+    <th>支払④</th>
+    <th>支払⑤</th>
+    <th>支払合算</th>
+    <th></th>
+  </tr>
+</table>
+
+<button onclick="addRow()">＋ 行を追加</button>
+
+<button onclick="calculate()">計算する</button>
+
+</div>
+
+
+
+<div class="result" id="result"></div>
+<button onclick="copyResult()">結果をコピー</button>
+
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('service-worker.js');
+}
+
+function copyResult() {
+  const text = document.getElementById('result').innerText;
+  if (!text) {
+    alert('コピーする結果がありません');
+    return;
+  }
+  navigator.clipboard.writeText(text).then(() => {
+    alert('結果をコピーしました');
+  });
+}
+
+function createRow(name = '') {
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td><input type="text" value="${name}" oninput="toggleRow(this)"></td>
+    <td><input type="number" value="0" oninput="updateSum(this)"></td>
+    <td><input type="number" value="0" oninput="updateSum(this)"></td>
+    <td><input type="number" value="0" oninput="updateSum(this)"></td>
+    <td><input type="number" value="0" oninput="updateSum(this)"></td>
+    <td><input type="number" value="0" oninput="updateSum(this)"></td>
+    <td><input type="number" value="0" readonly></td>
+    <td><button onclick="removeRow(this)">×</button></td>
+  `;
+  return tr;
+}
+
+function addRow() {
+  document.getElementById('members').appendChild(createRow());
+}
+
+function removeRow(btn) {
+  btn.closest('tr').remove();
+}
+
+function toggleRow(input) {
+  const row = input.closest('tr');
+  row.style.display = input.value.trim() === '' ? 'none' : '';
+}
+
+function updateSum(input) {
+  const row = input.closest('tr');
+  const nums = row.querySelectorAll('input[type="number"]');
+  let sum = 0;
+  for (let i = 0; i < nums.length - 1; i++) {
+    sum += Number(nums[i].value) || 0;
+  }
+  nums[nums.length - 1].value = sum;
+}
+
+function calculate() {
+  const rows = document.querySelectorAll('#members tr');
+  const members = [];
+
+  for (let i = 1; i < rows.length; i++) {
+    if (rows[i].style.display === 'none') continue;
+    const inputs = rows[i].querySelectorAll('input');
+    const name = inputs[0].value.trim();
+    if (!name) continue;
+    const paid = Number(inputs[inputs.length - 2].value) || 0;
+    members.push({ name, paid });
+  }
+
+  const total = members.reduce((s, m) => s + m.paid, 0);
+  const share = members.length ? total / members.length : 0;
+
+  const receivers = [];
+  const payers = [];
+
+  members.forEach(m => {
+    const diff = m.paid - share;
+    if (diff > 0) receivers.push({ name: m.name, amount: diff });
+    if (diff < 0) payers.push({ name: m.name, amount: -diff });
+  });
+
+  let text = `【割り勘精算】
+合計：${total}円
+1人あたり：${Math.round(share)}円
+
+`;
+
+  payers.forEach(p => {
+    receivers.forEach(r => {
+      if (p.amount > 0 && r.amount > 0) {
+        const pay = Math.min(p.amount, r.amount);
+        p.amount -= pay;
+        r.amount -= pay;
+        text += `${p.name} → ${r.name} に ${Math.round(pay)}円
+`;
+      }
+    });
+  });
+
+  document.getElementById('result').innerText = text || '精算不要です';
+}
+
+// 初期メンバー
+document.getElementById('members').append(
+  createRow('長野'),
+  createRow('中村'),
+  createRow('宇佐美'),
+  createRow('崎山')
+);
+</script>
+
+</body>
+</html>
