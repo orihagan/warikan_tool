@@ -144,12 +144,7 @@ function createRow() {
   // 削除ボタン
   tr.querySelector('button').addEventListener('click', () => tr.remove());
 
-  // スワイプ削除
-  let startX = 0;
-  tr.addEventListener('touchstart', e => {
-    if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
-    startX = e.changedTouches[0].screenX;
-  }, { passive: true });
+  
 
   tr.addEventListener('touchend', e => {
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
@@ -199,16 +194,18 @@ function calculate() {
     if (diff < 0) payers.push({ ...m, diff: -diff });
   });
 
-  let text = `【割り勘精算】
-合計：${total}円
-1人あたり：${avg}円
+  const fmt = n => Math.round(n).toLocaleString();
 
-`;
+  let text = `【割り勘精算】
+合計：${fmt(total)}円
+1人あたり：${fmt(avg)}円
+
+`;;
 
   payers.forEach(p => receivers.forEach(r => {
     if (p.diff > 0 && r.diff > 0) {
       const amt = Math.min(p.diff, r.diff);
-      text += `${p.name} → ${r.name} に ${amt}円
+      text += `${p.name} → ${r.name} に ${fmt(amt)}円
 `;
       p.diff -= amt;
       r.diff -= amt;
